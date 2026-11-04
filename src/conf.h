@@ -11,7 +11,11 @@ struct conf {
 	char keep[64];          /* KEEP: the function every mode keeps (the serial port) */
 	char chip_dev[64];      /* CHIP_DEV: this unit's AR8030 (arlink.ko) */
 	char serial[64];        /* USB_SERIAL: the same in every mode */
+	char board[32];         /* BOARD: the board id the bridge shows the host (docs/protocol.md) */
 };
+
+/* A board id: 1-31 of a-z, 0-9 and '-', starting with a letter or digit. */
+int board_id_valid(const char *id);
 
 int conf_load(struct conf *c);
 const char *run_dir(void);

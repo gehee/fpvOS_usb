@@ -8,7 +8,7 @@ the USB network (normal and update modes) or the unit's own AR8030 radio chip
 - `src/`: `fpvos-usb`, the mode changes (`fpvos-usb mode ...`) and the
   bridge (`fpvos-usb bridge`).
 - `boards/<board>/`: what differs per unit: `fpvos-usb.conf` (installed as
-  `/etc/default/fpvos-usb`) and the hooks in `/usr/libexec/fpvos-usb/`:
+  `/etc/default/fpvos-usb`, with the board id the host picks firmware by) and the hooks in `/usr/libexec/fpvos-usb/`:
   `radio-stop` (stops whatever uses the radio) and `chip-load DIR IMAGE`
   (loads the unit's AR8030 with the image the host uploaded).
 - `tests/`: host tests.

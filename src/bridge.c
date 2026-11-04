@@ -33,6 +33,7 @@
 #include "gadget.h"
 #include "log.h"
 #include "rom.h"
+#include "usbdesc.h"
 
 #define FW_NAME "usb-upload.img"
 
@@ -55,12 +56,6 @@ struct __attribute__((packed)) descs_run {
 	} __attribute__((packed)) fs, hs;
 };
 
-struct __attribute__((packed)) strings_one {
-	struct usb_functionfs_strings_head head;
-	uint16_t lang;
-	char str[7];
-};
-
 static struct usb_interface_descriptor vendor_intf(int neps)
 {
 	struct usb_interface_descriptor d = {
@@ -81,7 +76,7 @@ static struct usb_endpoint_descriptor_no_audio bulk_ep(uint8_t addr, uint16_t ma
 	return d;
 }
 
-static int ffs_start(int running)
+static int ffs_start(const struct conf *c, int running)
 {
 	ep0 = open(FFS_DIR "/ep0", O_RDWR | O_CLOEXEC);
 	if (ep0 < 0) {
@@ -115,11 +110,9 @@ static int ffs_start(int running)
 		say("descriptors: %s\n", strerror(errno));
 		return -1;
 	}
-	struct strings_one s = {
-		.head = { htole32(FUNCTIONFS_STRINGS_MAGIC), htole32(sizeof(s)), htole32(1), htole32(1) },
-		.lang = htole16(0x0409), .str = "arlink",
-	};
-	if (write(ep0, &s, sizeof(s)) < 0) {
+	uint8_t s[128];
+	size_t sn = ffs_strings(s, sizeof(s), c->board);
+	if (!sn || write(ep0, s, sn) < 0) {
 		say("strings: %s\n", strerror(errno));
 		return -1;
 	}
@@ -156,7 +149,7 @@ static const char *ev_name(int t)
 static int present(const struct conf *c, int running, uint16_t vid, uint16_t pid, const char *product)
 {
 	if (gadget_unbind(c) || gadget_ffs_add(c) || gadget_ids(c, vid, pid, product) ||
-	    ffs_start(running))
+	    ffs_start(c, running))
 		return -1;
 	return 0;
 }

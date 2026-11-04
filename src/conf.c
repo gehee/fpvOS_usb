@@ -35,6 +35,17 @@ static void set(char *dst, const char *v)
 	dst[n] = 0;
 }
 
+int board_id_valid(const char *id)
+{
+	size_t n = strlen(id);
+	if (!n || n > 31 || id[0] == '-')
+		return 0;
+	for (size_t i = 0; i < n; i++)
+		if (!((id[i] >= 'a' && id[i] <= 'z') || (id[i] >= '0' && id[i] <= '9') || id[i] == '-'))
+			return 0;
+	return 1;
+}
+
 int conf_load(struct conf *c)
 {
 	const char *path = env_or("FPVOS_USB_CONF", "/etc/default/fpvos-usb");
@@ -58,12 +69,22 @@ int conf_load(struct conf *c)
 		else if (!strcmp(k, "KEEP")) set(c->keep, v);
 		else if (!strcmp(k, "CHIP_DEV")) set(c->chip_dev, v);
 		else if (!strcmp(k, "USB_SERIAL")) set(c->serial, v);
+		else if (!strcmp(k, "BOARD")) {
+			char b[64];
+			set(b, v);
+			if (board_id_valid(b))  /* at most 31 characters */
+				memcpy(c->board, b, strlen(b) + 1);
+		}
 	}
 	fclose(f);
 	/* Names end up in paths: no way out of the gadget's own directory. */
 	if (!c->gadget[0] || !c->udc[0] || !c->keep[0] || strchr(c->gadget, '/') ||
 	    strchr(c->keep, '/') || strstr(c->gadget, "..") || strstr(c->keep, "..")) {
 		say("%s: GADGET, UDC and KEEP must be set, as plain names\n", path);
+		return -1;
+	}
+	if (!c->board[0]) {
+		say("%s: BOARD must be set to a board id (a-z, 0-9, -)\n", path);
 		return -1;
 	}
 	return 0;

@@ -87,6 +87,27 @@ The mode text in the 0x3c reply is "normal mode", "bridge mode" or "clean
 RAM mode" (update mode); while an update runs it says what the update is
 doing.
 
+## Board ids
+
+In bridge mode the vendor interface's string is `arlink board=<id>`, in the
+boot ROM and in the running chip alike: the host reads it before it uploads
+anything (`/sys/bus/usb/devices/<port>:1.<n>/interface`) and picks the
+firmware and config built for that board. An id is 1 to 31 of `a-z`, `0-9`
+and `-`. A real AR8030 on USB has no such string.
+
+| Board id | Unit | Its AR8030 on | Open8030 profile | Bridge mode |
+|---|---|---|---|---|
+| `p1-air` | BETAFPV P1 Air (AR9311) | SDIO | `p1-air.c`, made by fpvOS from P1_SKY 1.0.44's radio image | yes |
+| `ascent-vrx` | Caddx Ascent VRX (AR9311) | SDIO | `ascent-vrx.c` (fpvOS `vendor/open8030`) | not yet |
+| `ascent-lite` | Caddx Ascent Lite air (Hi3516CV610, board 482) | SDIO | `ascent-lite-plus.c` (one image for both) | not yet |
+| `ascent-lite-plus` | Caddx Ascent Lite+ air (board 472) | SDIO | `ascent-lite-plus.c` | not yet |
+| `ascent-vrx-pro` | Caddx VRX Pro goggle (RK3568) | USB | `ascent-vrx-pro.c` | not yet |
+| `steadyview` | Skyzone SteadyView Digital ground (AR9311) | SDIO | `steadyview-vrx.c` | not yet |
+
+The id names the board, not the firmware: two boards may share a profile and
+still differ in config (power tables, role). Ids are never reused; a new
+board gets a new id here.
+
 ## Bridge mode, from the host
 
 The host runs ar_libre's `arlink.ko` (USB). It takes the boot ROM, uploads
@@ -94,10 +115,13 @@ its firmware and config, and gets `/dev/arlinkN` once the running chip
 appears; the unit puts the upload back together, loads its own chip with it
 over SDIO and carries the frames both ways unchanged.
 
-The firmware has to be a build the chip can run over SDIO (for Open8030: the
-SDIO transport, not `AR_FORCE_USB`). A USB build leaves the chip silent and
-the unit has to be power cycled. `arlink.ko` has to match the vendor
-interface only (ar_libre 2026-11-04 and later), or it also takes the serial
-port's interfaces.
+The firmware has to be a build for the board's profile that the chip can run
+over SDIO (for Open8030: the SDIO transport, not `AR_FORCE_USB`). A USB build
+leaves the chip silent and the unit has to be power cycled.
+
+ar_libre's `arlink.ko` (2026-11-04 and later) leaves the serial port's
+interfaces alone, and when the interface names a board it loads `fw_name`
+and `cfg_name` from `/lib/firmware/<id>/` only: a board with no firmware
+there gets no upload rather than another board's.
 
 To leave bridge mode, send `normal`: the unit reboots, with its own firmware.

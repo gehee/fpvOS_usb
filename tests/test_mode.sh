@@ -14,6 +14,7 @@ cat > "$t/conf" <<E
 GADGET="fpvos"
 UDC=8000000.usb
 KEEP=acm.usb0
+BOARD=p1-air
 E
 printf '#!/bin/sh\necho stopped >> %s/calls\n' "$t" > "$t/libexec/radio-stop"
 printf '#!/bin/sh\necho bridge >> %s/calls\n' "$t" > "$t/bridge"
@@ -41,13 +42,19 @@ st=0; "$bin" mode bridge 2>/dev/null || st=$?
 [ "$st" = 1 ] && [ "$("$bin" mode)" = normal ] || fail "radio-stop failure stays normal"
 
 # Bad names never become paths.
-printf 'GADGET=../x\nUDC=u\nKEEP=acm.usb0\n' > "$t/conf"
+printf 'GADGET=../x\nUDC=u\nKEEP=acm.usb0\nBOARD=p1-air\n' > "$t/conf"
 printf '#!/bin/sh\n' > "$t/libexec/radio-stop"
 "$bin" mode bridge >/dev/null 2>&1 && fail "GADGET with a path refused"
+# No board id, or one that is not one: no bridge (the host could not pick firmware).
+for b in '' 'P1' '../x' '-p1'; do
+	printf 'GADGET=fpvos\nUDC=u\nKEEP=acm.usb0\nBOARD=%s\n' "$b" > "$t/conf"
+	"$bin" mode bridge >/dev/null 2>&1 && fail "BOARD '$b' refused"
+done
+[ ! -e "$t/calls" ] || fail "no radio stopped for a refused bridge"
 
 # The bridge on a tree without FunctionFS: ECM goes, the serial port stays,
 # and it comes back alone under the neutral identity.
-printf 'GADGET=fpvos\nUDC=8000000.usb\nKEEP=acm.usb0\n' > "$t/conf"
+printf 'GADGET=fpvos\nUDC=8000000.usb\nKEEP=acm.usb0\nBOARD=p1-air\n' > "$t/conf"
 g=$t/configfs/usb_gadget/fpvos
 mkdir -p "$g/configs/c.1" "$g/functions/ecm.usb0" "$g/functions/acm.usb0" "$g/strings/0x409"
 ln -s "$g/functions/ecm.usb0" "$g/configs/c.1/ecm.usb0"
