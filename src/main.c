@@ -8,9 +8,10 @@
 //   fpvos-usb mode bridge      stop the radio's users, then (1 s later, so the
 //                              reply gets out) turn the USB network into the
 //                              AR8030 bridge; exit 0 once started
-//   fpvos-usb mode normal      exit 0 if already normal; 10 if the unit has to
-//                              reboot to get there (the caller reboots)
+//   fpvos-usb mode normal      from bridge: (1 s later) undo the bridge live,
+//                              rebooting only if that fails; exit 0 at once
 //   fpvos-usb bridge           the bridge itself (what `mode bridge` starts)
+//   fpvos-usb unbridge         the way back from it (what `mode normal` starts)
 //
 // Update mode is the updater's own (its clean mode): not handled here.
 #include <errno.h>
@@ -27,6 +28,7 @@
 #include "log.h"
 
 int bridge_main(const struct conf *c);
+int unbridge_main(const struct conf *c, int (*hook)(const char *name));
 
 static double t0;
 
@@ -91,8 +93,9 @@ static int hook(const char *name)
 	return WIFEXITED(st) && !WEXITSTATUS(st) ? 0 : -1;
 }
 
-/* The bridge, detached from the caller: its log is in the run directory. */
-static int start_bridge(void)
+/* `fpvos-usb WHAT`, detached from the caller, 1 s later; its log in the run
+ * directory (appended). FPVOS_USB_SELF runs another program instead (tests). */
+static int start(const char *what)
 {
 	char log[300];
 	snprintf(log, sizeof(log), "%s/bridge.log", run_dir());
@@ -102,7 +105,7 @@ static int start_bridge(void)
 	if (p)
 		return 0;
 	setsid();
-	int fd = open(log, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0600);
+	int fd = open(log, O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC, 0600);
 	int null = open("/dev/null", O_RDONLY);
 	if (fd >= 0) {
 		dup2(fd, STDOUT_FILENO);
@@ -113,11 +116,11 @@ static int start_bridge(void)
 	if (fork())
 		_exit(0);               /* not a child of the caller any more */
 	sleep(1);                       /* the caller's reply goes out before the gadget changes */
-	const char *test = getenv("FPVOS_USB_BRIDGE");
+	const char *test = getenv("FPVOS_USB_SELF");
 	if (test && *test)
-		execl(test, test, (char *)NULL);
+		execl(test, test, what, (char *)NULL);
 	else
-		execl("/proc/self/exe", "fpvos-usb", "bridge", (char *)NULL);
+		execl("/proc/self/exe", "fpvos-usb", what, (char *)NULL);
 	_exit(127);
 }
 
@@ -131,7 +134,7 @@ static int mode_main(int argc, char **argv)
 	}
 	const char *want = argv[2];
 	if (!strcmp(want, "normal"))
-		return strcmp(now, "bridge") ? 0 : 10;
+		return strcmp(now, "bridge") ? 0 : (start("unbridge") ? 10 : 0);
 	if (strcmp(want, "bridge")) {
 		fprintf(stderr, "fpvos-usb: no mode %s here (normal, bridge)\n", want);
 		return 2;
@@ -146,7 +149,7 @@ static int mode_main(int argc, char **argv)
 		fprintf(stderr, "fpvos-usb: radio-stop failed; staying in normal mode\n");
 		return 1;
 	}
-	if (mode_set("bridge") || start_bridge())
+	if (mode_set("bridge") || start("bridge"))
 		return 1;
 	return 0;
 }
@@ -165,6 +168,18 @@ int main(int argc, char **argv)
 			return 1;
 		return bridge_main(&c);
 	}
-	fprintf(stderr, "usage: fpvos-usb mode [normal|bridge] | fpvos-usb bridge\n");
+	if (argc == 2 && !strcmp(argv[1], "unbridge")) {
+		struct conf c;
+		say("unbridge: back to normal mode\n");
+		if (conf_load(&c) || unbridge_main(&c, hook)) {
+			say("unbridge: failed; rebooting\n");
+			const char *reboot = getenv("FPVOS_USB_REBOOT");    /* tests */
+			reboot = reboot && *reboot ? reboot : "/sbin/reboot";
+			execl(reboot, "reboot", (char *)NULL);
+			return 1;
+		}
+		return mode_set("normal") ? 1 : 0;
+	}
+	fprintf(stderr, "usage: fpvos-usb mode [normal|bridge] | fpvos-usb bridge | fpvos-usb unbridge\n");
 	return 2;
 }

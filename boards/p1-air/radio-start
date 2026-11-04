@@ -1,0 +1,9 @@
+#!/bin/sh
+# Back from bridge mode: the unit's own firmware and calibrated config (made
+# at boot by S44ar9311-radio) in its chip again, then Kestrel.
+set -eu
+firmware=open8030.img
+config=open8030.json
+[ ! -r /etc/default/ar9311-radio ] || . /etc/default/ar9311-radio
+/usr/libexec/fpvos-usb/chip-load /lib/firmware "$firmware" "$config"
+[ ! -x /etc/init.d/S60kestrel-air ] || /etc/init.d/S60kestrel-air start

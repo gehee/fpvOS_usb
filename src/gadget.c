@@ -124,6 +124,43 @@ int gadget_ids(const struct conf *c, uint16_t vid, uint16_t pid, const char *pro
 	return r;
 }
 
+int gadget_saved_write(const char *path, const struct gadget_saved *s)
+{
+	char tmp[600];
+	snprintf(tmp, sizeof(tmp), "%s.new", path);
+	FILE *f = fopen(tmp, "w");
+	if (!f)
+		return -1;
+	for (int i = 0; i < GADGET_SAVED; i++)
+		fprintf(f, "a%d %s\n", i, s->attr[i]);
+	for (int i = 0; i < s->unlinked; i++)
+		fprintf(f, "f %s\n", s->name[i]);
+	if (fclose(f) || rename(tmp, path))
+		return -1;
+	return 0;
+}
+
+int gadget_saved_read(const char *path, struct gadget_saved *s)
+{
+	FILE *f = fopen(path, "r");
+	char line[160];
+	memset(s, 0, sizeof(*s));
+	if (!f)
+		return -1;
+	while (fgets(line, sizeof(line), f)) {
+		line[strcspn(line, "\n")] = 0;
+		size_t n;
+		if (line[0] == 'a' && line[1] >= '0' && line[1] < '0' + GADGET_SAVED && line[2] == ' ' &&
+		    (n = strlen(line + 3)) < sizeof(s->attr[0]))
+			memcpy(s->attr[line[1] - '0'], line + 3, n + 1);
+		else if (line[0] == 'f' && line[1] == ' ' && s->unlinked < GADGET_FUNCTIONS &&
+			 (n = strlen(line + 2)) && n < sizeof(s->name[0]) && !strchr(line + 2, '/'))
+			memcpy(s->name[s->unlinked++], line + 2, n + 1);
+	}
+	fclose(f);
+	return 0;
+}
+
 int gadget_only_keep(const struct conf *c, struct gadget_saved *s)
 {
 	char p[512], link[800];

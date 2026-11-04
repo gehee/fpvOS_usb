@@ -1,6 +1,7 @@
 #!/bin/sh
-# chip-load DIR IMAGE: reload the P1 Air's AR8030 with IMAGE (from DIR), the
-# image the host uploaded in bridge mode, through arlink.ko.
+# chip-load DIR IMAGE [CONFIG]: reload the P1 Air's AR8030 with IMAGE (from
+# DIR) through arlink.ko: the image the host uploaded in bridge mode (its
+# config already in it), or on the way back the unit's own with its CONFIG.
 #
 # A chip running firmware never goes back to its boot ROM on its own, and the
 # radio power sequencer drives the reset line only when it first powers the
@@ -8,9 +9,9 @@
 # unbound first (arlink.ko never goes away under a live chip), the sequencer
 # is unbound and bound again (its probe asserts reset), then the host is bound
 # again (power-on releases reset, the chip comes up in its boot ROM), and
-# arlink.ko uploads IMAGE, whose config is already in it.
+# arlink.ko uploads IMAGE (and CONFIG over the image's own).
 set -eu
-dir=${1:?} image=${2:?}
+dir=${1:?} image=${2:?} config=${3:-}
 mmc=/sys/bus/platform/drivers/dwmmc_artosyn
 host=1b00000.mmc
 pwrseq=/sys/bus/platform/drivers/ar9311-radio-pwrseq
@@ -27,7 +28,7 @@ echo "$dev" > "$pwrseq/unbind"
 echo "$dev" > "$pwrseq/bind"
 echo "$host" > "$mmc/bind"
 printf %s "$dir" > /sys/module/firmware_class/parameters/path
-modprobe arlink fw_name="$image" cfg_name=
+modprobe arlink fw_name="$image" cfg_name="$config"
 i=0
 while [ ! -c /dev/arlink0 ] && [ "$i" -lt 100 ]; do sleep 0.1; i=$((i + 1)); done
 [ -c /dev/arlink0 ] || { dmesg | grep -iE 'arlink|mmc0' | tail -8 >&2; exit 1; }

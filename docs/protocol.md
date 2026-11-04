@@ -14,7 +14,7 @@ from this repository for the mode changes.
 
 | Mode | On USB, next to the serial port | How to get there |
 |---|---|---|
-| normal | USB network (CDC-ECM), the unit's address and SSH | at boot; from bridge: a reboot |
+| normal | USB network (CDC-ECM), the unit's address and SSH | at boot; from bridge: `normal`, no reboot |
 | update | USB network; the unit runs from RAM, nothing else running, so it can be flashed | `update` (or `clean`): the unit reboots into it where it has to |
 | bridge | its AR8030, as an AR8030 on USB (boot ROM, then the running chip) | `bridge`, from normal; no reboot |
 
@@ -77,7 +77,7 @@ Names for command 3:
 
 | Name | What it does |
 |---|---|
-| `normal` | to normal mode: OK at once if it already is; from bridge, "rebooting", then a reboot |
+| `normal` | to normal mode: "OK". From bridge, 1 s later the bridge stops, the USB network comes back and the unit's own firmware is loaded into its chip again (about 5 s); if any of that fails, the unit reboots |
 | `bridge` | to bridge mode: the unit's own radio users stop, "OK", then (1 s later) the USB network leaves and the boot ROM appears; refused in update mode |
 | `update` | to update mode (the same as `clean`): "rebooting into clean mode" when the unit has to reboot for it, "OK" when it is already there |
 | `reboot` | reboots |
@@ -124,4 +124,7 @@ interfaces alone, and when the interface names a board it loads `fw_name`
 and `cfg_name` from `/lib/firmware/<id>/` only: a board with no firmware
 there gets no upload rather than another board's.
 
-To leave bridge mode, send `normal`: the unit reboots, with its own firmware.
+To leave bridge mode, send `normal`: the unit's own firmware and config go
+back into its chip, without a reboot. A failed bridge brings the USB network
+back by itself (with its log in `/run/fpvos-usb/bridge.log`), still in bridge
+mode until `normal`.

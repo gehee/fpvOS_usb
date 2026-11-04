@@ -23,6 +23,9 @@ struct gadget_saved {
 void gadget_save(const struct conf *c, struct gadget_saved *s);
 /* Only while unbound. */
 int gadget_restore(const struct conf *c, const struct gadget_saved *s);
+/* Kept in a file between the bridge and the way back from it. */
+int gadget_saved_write(const char *path, const struct gadget_saved *s);
+int gadget_saved_read(const char *path, struct gadget_saved *s);
 
 /* Both are no-ops when already done. */
 int gadget_unbind(const struct conf *c);

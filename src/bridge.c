@@ -16,6 +16,7 @@
 // RAM only: nothing is written to flash. The uploaded image is the host's
 // choice and is used as is: it has to be a build the chip can run over SDIO.
 #include <errno.h>
+#include <signal.h>
 #include <fcntl.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -379,17 +380,33 @@ static int failed(const struct conf *c, const struct gadget_saved *saved)
 	return 1;
 }
 
+static void run_file(char *out, size_t size, const char *name)
+{
+	snprintf(out, size, "%s/%s", run_dir(), name);
+}
+
 int bridge_main(const struct conf *c)
 {
 	struct gadget_saved saved = {0};
+	char path[300];
+	FILE *pid;
 	char fw_dir[256], image[300];
 	snprintf(fw_dir, sizeof(fw_dir), "%s/fw", run_dir());
 	snprintf(image, sizeof(image), "%s/" FW_NAME, fw_dir);
 	mkdir(fw_dir, 0700);
 	unlink(image);
 
+	run_file(path, sizeof(path), "bridge.pid");
+	if ((pid = fopen(path, "w"))) {
+		fprintf(pid, "%d\n", (int)getpid());
+		fclose(pid);
+	}
 	gadget_save(c, &saved);
-	if (gadget_unbind(c) || gadget_only_keep(c, &saved) || run_rom(c, image))
+	if (gadget_unbind(c) || gadget_only_keep(c, &saved))
+		return failed(c, &saved);
+	/* For the way back (fpvos-usb unbridge). */
+	run_file(path, sizeof(path), "gadget.saved");
+	if (gadget_saved_write(path, &saved) || run_rom(c, image))
 		return failed(c, &saved);
 	/* The boot ROM leaves the bus while this unit's chip loads. */
 	serial_present(c);
@@ -397,4 +414,54 @@ int bridge_main(const struct conf *c)
 		return failed(c, &saved);
 	run_chip(c);
 	return failed(c, &saved);
+}
+
+/* The way back from bridge mode, live: the bridge stops, the unit's own USB
+ * set comes back, and the board's radio-start hook puts the unit's own
+ * firmware back in its chip and starts what uses it. Anything failing: the
+ * unit reboots instead. */
+int unbridge_main(const struct conf *c, int (*hook)(const char *name))
+{
+	struct gadget_saved saved;
+	char path[300];
+	run_file(path, sizeof(path), "bridge.pid");
+	FILE *f = fopen(path, "r");
+	int pid = 0;
+	if (f) {
+		if (fscanf(f, "%d", &pid) != 1)
+			pid = 0;
+		fclose(f);
+	}
+	if (pid > 1 && !kill(pid, SIGTERM)) {
+		for (int i = 0; i < 50 && !kill(pid, 0); i++)
+			usleep(100000);
+		if (!kill(pid, 0)) {
+			kill(pid, SIGKILL);
+			usleep(200000);
+		}
+		say("unbridge: bridge %d stopped\n", pid);
+	}
+	unlink(path);
+	run_file(path, sizeof(path), "gadget.saved");
+	if (gadget_saved_read(path, &saved)) {
+		say("unbridge: no saved USB set\n");
+		return 1;
+	}
+	gadget_unbind(c);
+	gadget_ffs_remove(c);
+	if (gadget_restore(c, &saved) || gadget_bind(c)) {
+		say("unbridge: the USB set could not be put back\n");
+		return 1;
+	}
+	say("unbridge: the unit's own USB set is back\n");
+	/* Required: without it the chip would keep the host's firmware. */
+	hook_path(path, sizeof(path), "radio-start");
+	if (access(path, X_OK) || hook("radio-start")) {
+		say("unbridge: radio-start failed\n");
+		return 1;
+	}
+	run_file(path, sizeof(path), "gadget.saved");
+	unlink(path);
+	say("unbridge: normal mode\n");
+	return 0;
 }
