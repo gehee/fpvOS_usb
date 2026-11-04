@@ -1,0 +1,5 @@
+#!/bin/sh
+# Bridge mode: the radio becomes the host's. Kestrel closes the chip as it
+# stops (closing the client deinitializes the radio).
+set -eu
+[ ! -x /etc/init.d/S60kestrel-air ] || /etc/init.d/S60kestrel-air stop

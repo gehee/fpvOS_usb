@@ -1,0 +1,45 @@
+# fpvOS_usb
+
+What an fpvOS unit shows on USB: a serial port in every mode, and next to it
+the USB network (normal and update modes) or the unit's own AR8030 radio chip
+(bridge mode). A tool on the host changes the mode over the serial port.
+[docs/protocol.md](docs/protocol.md) has the protocol and the modes.
+
+- `src/`: `fpvos-usb`, the mode changes (`fpvos-usb mode ...`) and the
+  bridge (`fpvos-usb bridge`).
+- `boards/<board>/`: what differs per unit: `fpvos-usb.conf` (installed as
+  `/etc/default/fpvos-usb`) and the hooks in `/usr/libexec/fpvos-usb/`:
+  `radio-stop` (stops whatever uses the radio) and `chip-load DIR IMAGE`
+  (loads the unit's AR8030 with the image the host uploaded).
+- `tests/`: host tests.
+
+The serial port's updater is fpvos-update's receiver, in fpvOS: it answers
+the protocol and calls `fpvos-usb mode` for mode changes. fpvOS builds this
+repository as the `fpvos-usb` package.
+
+## Boards
+
+| Board | State |
+|---|---|
+| BETAFPV P1 Air (AR9311, fpvOS's own 6.18 kernel) | built; not yet run on a unit |
+| Ascent VRX (AR9311) | to do: same as the P1 Air, its own hooks |
+| Ascent Lite/Lite+ air (Hi3516CV610, stock kernel) | to do: FunctionFS and ECM as modules, our own gadget in place of stock's |
+| VRX Pro goggle (RK3568, chip on USB) | to do: chip-load over USB |
+
+The stock P1 Air kernel (4.9.38) has no FunctionFS: bridge mode needs the
+fpvOS kernel (`./build.sh p1-air-source`).
+
+## Build
+
+```
+make CROSS_COMPILE=aarch64-buildroot-linux-musl-
+make test
+```
+
+The tests run on the host: the boot ROM upload put back together, the frame
+scanner, and the mode changes and gadget edits against a fake configfs tree.
+
+## License
+
+GPL-2.0-or-later. The bridge started as `arlink-usbchip`, written for the
+Skyzone SteadyView ground unit.

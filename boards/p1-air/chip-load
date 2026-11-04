@@ -1,0 +1,34 @@
+#!/bin/sh
+# chip-load DIR IMAGE: reload the P1 Air's AR8030 with IMAGE (from DIR), the
+# image the host uploaded in bridge mode, through arlink.ko.
+#
+# A chip running firmware never goes back to its boot ROM on its own, and the
+# radio power sequencer drives the reset line only when it first powers the
+# card (it keeps the RAM across SDIO removal on purpose). So: the SD host is
+# unbound first (arlink.ko never goes away under a live chip), the sequencer
+# is unbound and bound again (its probe asserts reset), then the host is bound
+# again (power-on releases reset, the chip comes up in its boot ROM), and
+# arlink.ko uploads IMAGE, whose config is already in it.
+set -eu
+dir=${1:?} image=${2:?}
+mmc=/sys/bus/platform/drivers/dwmmc_artosyn
+host=1b00000.mmc
+pwrseq=/sys/bus/platform/drivers/ar9311-radio-pwrseq
+dev=
+for d in "$pwrseq"/*; do
+	[ -L "$d" ] && [ -e "$d/driver" ] || continue
+	dev=${d##*/}
+done
+[ -n "$dev" ] || { echo "chip-load: no radio power sequencer bound" >&2; exit 1; }
+
+[ ! -e "$mmc/$host" ] || echo "$host" > "$mmc/unbind"
+! grep -q '^arlink ' /proc/modules || rmmod arlink
+echo "$dev" > "$pwrseq/unbind"
+echo "$dev" > "$pwrseq/bind"
+echo "$host" > "$mmc/bind"
+printf %s "$dir" > /sys/module/firmware_class/parameters/path
+modprobe arlink fw_name="$image" cfg_name=
+i=0
+while [ ! -c /dev/arlink0 ] && [ "$i" -lt 100 ]; do sleep 0.1; i=$((i + 1)); done
+[ -c /dev/arlink0 ] || { dmesg | grep -iE 'arlink|mmc0' | tail -8 >&2; exit 1; }
+dmesg | grep -E 'arlink.*(uploaded|running)' | tail -2
