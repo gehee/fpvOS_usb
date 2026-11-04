@@ -52,17 +52,21 @@ for b in '' 'P1' '../x' '-p1'; do
 done
 [ ! -e "$t/calls" ] || fail "no radio stopped for a refused bridge"
 
-# The bridge on a tree without FunctionFS: ECM goes, the serial port stays,
-# and it comes back alone under the neutral identity.
+# The bridge on a tree without FunctionFS: it fails, and the unit's own USB
+# set (network and serial port, its identity) comes back.
 printf 'GADGET=fpvos\nUDC=8000000.usb\nKEEP=acm.usb0\nBOARD=p1-air\n' > "$t/conf"
 g=$t/configfs/usb_gadget/fpvos
 mkdir -p "$g/configs/c.1" "$g/functions/ecm.usb0" "$g/functions/acm.usb0" "$g/strings/0x409"
 ln -s "$g/functions/ecm.usb0" "$g/configs/c.1/ecm.usb0"
 ln -s "$g/functions/acm.usb0" "$g/configs/c.1/acm.usb0"
+printf '0x1d6b\n' > "$g/idVendor"; printf '0x0104\n' > "$g/idProduct"
+printf 'P1 Air development network\n' > "$g/strings/0x409/product"
+: > "$g/UDC"
 "$bin" bridge > "$t/bridge.log" 2>&1 && fail "bridge without FunctionFS fails"
-[ "$(ls "$g/configs/c.1")" = acm.usb0 ] || fail "only the serial port is linked: $(ls "$g/configs/c.1")"
+[ "$(ls "$g/configs/c.1" | tr '\n' ' ')" = "acm.usb0 ecm.usb0 " ] || fail "network and serial port linked: $(ls "$g/configs/c.1")"
+grep -q 'ecm.usb0 unlinked' "$t/bridge.log" || fail "the network was taken away first"
 [ ! -e "$g/functions/ffs.arlink" ] || fail "FunctionFS function removed"
 [ "$(cat "$g/UDC")" = 8000000.usb ] || fail "bound again"
-[ "$(cat "$g/idVendor"):$(cat "$g/idProduct")" = 0x1d6b:0x0104 ] || fail "neutral identity"
-[ "$(cat "$g/strings/0x409/product")" = "fpvOS serial" ] || fail "neutral product"
+[ "$(cat "$g/idVendor"):$(cat "$g/idProduct")" = 0x1d6b:0x0104 ] || fail "own identity back"
+[ "$(cat "$g/strings/0x409/product")" = "P1 Air development network" ] || fail "own product back"
 echo ok

@@ -23,7 +23,10 @@ static int put(const struct conf *c, const char *rel, const char *val)
 {
 	char p[512];
 	path_of(p, sizeof(p), c, rel);
-	int fd = open(p, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
+	/* configfs attributes exist already and are written whole; a test tree
+	 * (FPVOS_USB_CONFIGFS) has plain files, made here. */
+	int flags = getenv("FPVOS_USB_CONFIGFS") ? O_CREAT | O_TRUNC : 0;
+	int fd = open(p, O_WRONLY | O_CLOEXEC | flags, 0644);
 	if (fd < 0) {
 		say("open %s: %s\n", p, strerror(errno));
 		return -1;
@@ -37,13 +40,69 @@ static int put(const struct conf *c, const char *rel, const char *val)
 	return 0;
 }
 
+/* An attribute's value, without the newline, in out ("" if unreadable). */
+static void get(const struct conf *c, const char *rel, char *out, size_t size)
+{
+	char p[512];
+	path_of(p, sizeof(p), c, rel);
+	out[0] = 0;
+	int fd = open(p, O_RDONLY | O_CLOEXEC);
+	if (fd < 0)
+		return;
+	ssize_t n = read(fd, out, size - 1);
+	close(fd);
+	out[n > 0 ? n : 0] = 0;
+	out[strcspn(out, "\n")] = 0;
+}
+
 int gadget_unbind(const struct conf *c)
 {
+	char udc[64];
+	/* configfs refuses to unbind a gadget that is not bound (-ENODEV). */
+	get(c, "UDC", udc, sizeof(udc));
+	if (!udc[0])
+		return 0;
 	return put(c, "UDC", "\n");
+}
+
+static const char *const saved_attrs[GADGET_SAVED] = {
+	"idVendor", "idProduct", "bDeviceClass", "bDeviceSubClass", "bDeviceProtocol",
+	"strings/0x409/product",
+};
+
+void gadget_save(const struct conf *c, struct gadget_saved *s)
+{
+	for (int i = 0; i < GADGET_SAVED; i++)
+		get(c, saved_attrs[i], s->attr[i], sizeof(s->attr[i]));
+}
+
+int gadget_restore(const struct conf *c, const struct gadget_saved *s)
+{
+	char fn[512], link[512];
+	int r = 0;
+	for (int i = 0; i < GADGET_SAVED; i++)
+		if (s->attr[i][0])
+			r |= put(c, saved_attrs[i], s->attr[i]);
+	for (int i = 0; i < s->unlinked; i++) {
+		char rel[160];
+		snprintf(rel, sizeof(rel), "functions/%s", s->name[i]);
+		path_of(fn, sizeof(fn), c, rel);
+		snprintf(rel, sizeof(rel), "configs/c.1/%s", s->name[i]);
+		path_of(link, sizeof(link), c, rel);
+		if (symlink(fn, link) && errno != EEXIST) {
+			say("relink %s: %s\n", s->name[i], strerror(errno));
+			r = -1;
+		}
+	}
+	return r;
 }
 
 int gadget_bind(const struct conf *c)
 {
+	char udc[64];
+	get(c, "UDC", udc, sizeof(udc));
+	if (!strcmp(udc, c->udc))
+		return 0;
 	say("gadget: binding to %s\n", c->udc);
 	return put(c, "UDC", c->udc);
 }
@@ -65,7 +124,7 @@ int gadget_ids(const struct conf *c, uint16_t vid, uint16_t pid, const char *pro
 	return r;
 }
 
-int gadget_only_keep(const struct conf *c)
+int gadget_only_keep(const struct conf *c, struct gadget_saved *s)
 {
 	char p[512], link[800];
 	path_of(p, sizeof(p), c, "configs/c.1");
@@ -85,6 +144,9 @@ int gadget_only_keep(const struct conf *c)
 			r = -1;
 		} else {
 			say("gadget: %s unlinked\n", e->d_name);
+			size_t n = strlen(e->d_name);
+			if (s->unlinked < GADGET_FUNCTIONS && n < sizeof(s->name[0]))
+				memcpy(s->name[s->unlinked++], e->d_name, n + 1);
 		}
 	}
 	closedir(d);

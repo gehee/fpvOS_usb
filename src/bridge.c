@@ -366,28 +366,35 @@ static void serial_present(const struct conf *c)
 	gadget_bind(c);
 }
 
-/* Whatever went wrong, the serial port comes back on its own, so the mode
- * can still be changed (normal reboots the unit). */
-static int serial_only(const struct conf *c)
+/* Whatever went wrong, the unit's own USB set (network and serial port) comes
+ * back, so its log can be read and the mode changed (normal reboots it). */
+static int failed(const struct conf *c, const struct gadget_saved *saved)
 {
-	serial_present(c);
+	ffs_stop(c);
+	gadget_unbind(c);
+	if (gadget_restore(c, saved))
+		say("bridge: the USB network could not be put back\n");
+	gadget_bind(c);
+	say("bridge: failed; the unit's own USB set is back (normal reboots it)\n");
 	return 1;
 }
 
 int bridge_main(const struct conf *c)
 {
+	struct gadget_saved saved = {0};
 	char fw_dir[256], image[300];
 	snprintf(fw_dir, sizeof(fw_dir), "%s/fw", run_dir());
 	snprintf(image, sizeof(image), "%s/" FW_NAME, fw_dir);
 	mkdir(fw_dir, 0700);
 	unlink(image);
 
-	if (gadget_unbind(c) || gadget_only_keep(c) || run_rom(c, image))
-		return serial_only(c);
+	gadget_save(c, &saved);
+	if (gadget_unbind(c) || gadget_only_keep(c, &saved) || run_rom(c, image))
+		return failed(c, &saved);
 	/* The boot ROM leaves the bus while this unit's chip loads. */
 	serial_present(c);
 	if (run_hook("chip-load", fw_dir, FW_NAME))
-		return serial_only(c);
+		return failed(c, &saved);
 	run_chip(c);
-	return serial_only(c);
+	return failed(c, &saved);
 }
