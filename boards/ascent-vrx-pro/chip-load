@@ -1,0 +1,39 @@
+#!/bin/sh
+# chip-load DIR IMAGE [CONFIG]: reload the VRX Pro's AR8030 with IMAGE (from
+# DIR) through arlink.ko: the image the host uploaded in bridge mode (its
+# config already in it), or another with its CONFIG.
+#
+# The goggle's chip is on its own USB host port. A running chip never goes
+# back to its boot ROM by itself: arlink.ko is unloaded (it never goes away
+# under a program holding the chip), the chip's power is cycled through the
+# four GPIOs stock's enable_rf drives (the sequence of /ar8030soc/bb_only.sh),
+# it comes back as its boot ROM (4152:8030), and arlink.ko uploads IMAGE (and
+# CONFIG over the image's own); the running chip re-enumerates and the
+# resident driver gives /dev/arlink0.
+set -eu
+dir=${1:?} image=${2:?} config=${3:-}
+
+gpio_lo() {
+	[ -d /sys/class/gpio/gpio"$1" ] || echo "$1" > /sys/class/gpio/export
+	echo out > /sys/class/gpio/gpio"$1"/direction
+	echo 0 > /sys/class/gpio/gpio"$1"/value
+}
+
+! grep -q '^arlink ' /proc/modules || rmmod arlink
+for g in 154 83 84 82; do gpio_lo "$g"; done
+usleep 100000
+echo 1 > /sys/class/gpio/gpio83/value
+echo 1 > /sys/class/gpio/gpio84/value
+usleep 50000
+echo 1 > /sys/class/gpio/gpio154/value
+usleep 50000
+echo 1 > /sys/class/gpio/gpio82/value
+usleep 280000
+for g in 84 83 82; do echo in > /sys/class/gpio/gpio"$g"/direction; done
+
+printf %s "$dir" > /sys/module/firmware_class/parameters/path
+modprobe arlink fw_name="$image" cfg_name="$config"
+i=0
+while [ ! -c /dev/arlink0 ] && [ "$i" -lt 300 ]; do sleep 0.1; i=$((i + 1)); done
+[ -c /dev/arlink0 ] || { dmesg | grep -i arlink | tail -8 >&2; exit 1; }
+dmesg | grep -E 'arlink.*(uploaded|running)' | tail -2

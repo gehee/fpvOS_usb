@@ -1,0 +1,6 @@
+#!/bin/sh
+# Bridge mode: the radio becomes the host's. kestrel-gnd closes the chip as
+# it stops (its supervisor first, so it is not started again); chip-load
+# unloads arlink.ko.
+set -eu
+[ ! -x /etc/init.d/S70kestrel ] || /etc/init.d/S70kestrel stop

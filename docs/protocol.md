@@ -101,7 +101,7 @@ and `-`. A real AR8030 on USB has no such string.
 | `ascent-vrx` | Caddx Ascent VRX (AR9311) | SDIO | `ascent-vrx.c` (fpvOS `vendor/open8030`) | not yet |
 | `ascent-lite` | Caddx Ascent Lite air (Hi3516CV610, board 482) | SDIO | `ascent-lite-plus.c` (one image for both) | not yet |
 | `ascent-lite-plus` | Caddx Ascent Lite+ air (board 472) | SDIO | `ascent-lite-plus.c` | not yet |
-| `ascent-vrx-pro` | Caddx VRX Pro goggle (RK3568) | USB | `ascent-vrx-pro.c` | not yet |
+| `ascent-vrx-pro` | Caddx VRX Pro goggle (RK3568) | USB | `ascent-vrx-pro.c` | yes |
 | `steadyview` | Skyzone SteadyView Digital ground (AR9311) | SDIO | `steadyview-vrx.c` | not yet |
 
 The id names the board, not the firmware: two boards may share a profile and
@@ -116,8 +116,11 @@ appears; the unit puts the upload back together, loads its own chip with it
 over SDIO and carries the frames both ways unchanged.
 
 The firmware has to be a build for the board's profile that the chip can run
-over SDIO (for Open8030: the SDIO transport, not `AR_FORCE_USB`). A USB build
-leaves the chip silent and the unit has to be power cycled.
+on the unit's own bus: over SDIO (for Open8030: the SDIO transport, not
+`AR_FORCE_USB`) on every board but the VRX Pro, whose chip is on its USB host
+port and runs a USB build (`AR_FORCE_USB`, the goggle's own
+`open8030-vrxpro-usb.img`). The wrong one leaves the chip silent and the unit
+has to be power cycled.
 
 ar_libre's `arlink.ko` (2026-11-04 and later) leaves the serial port's
 interfaces alone, and when the interface names a board it loads `fw_name`

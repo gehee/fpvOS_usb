@@ -1,0 +1,8 @@
+#!/bin/sh
+# Back from bridge mode: the goggle's own firmware and radio config in its
+# chip again, the way boot puts them there (bb_only.sh, here in the
+# foreground so a failure is seen), then kestrel-gnd.
+set -eu
+printf %s /lib/firmware > /sys/module/firmware_class/parameters/path
+/ar8030soc/bb_only.sh >> /var/log/ar8030-boot.log 2>&1
+[ ! -x /etc/init.d/S70kestrel ] || /etc/init.d/S70kestrel start
