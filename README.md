@@ -13,6 +13,9 @@ the USB network (normal and update modes) or the unit's own AR8030 radio chip
   the radio), `chip-load DIR IMAGE [CONFIG]` (loads the unit's AR8030 with an
   image: the host's in bridge mode) and `radio-start` (the way back: the
   unit's own firmware in its chip, then what uses it).
+  An image runs `fpvos-usb shutdown` before its own USB gadget goes down at
+  shutdown: unbinding the gadget under the bridge's endpoints hangs the
+  reboot.
 - `tests/`: host tests.
 
 The serial port's updater is fpvos-update's receiver, in fpvOS: it answers

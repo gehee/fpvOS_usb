@@ -93,6 +93,19 @@ chmod +x "$t/libexec/radio-start"
 [ "$("$bin" mode)" = normal ] || fail "unbridge: normal mode"
 [ ! -e "$t/run/gadget.saved" ] || fail "unbridge: saved set used up"
 
+# Shutdown in bridge mode: the bridge's USB set undone, no radio-start, no
+# reboot of its own (the unit is shutting down already). In normal mode: nothing.
+: > "$t/calls"
+"$bin" shutdown || fail "shutdown in normal mode is nothing to do"
+[ ! -s "$t/calls" ] || fail "shutdown in normal mode ran something"
+rm "$g/configs/c.1/ecm.usb0"; mkdir -p "$g/functions/ffs.arlink"
+ln -s "$g/functions/ffs.arlink" "$g/configs/c.1/ffs.arlink"
+printf 'f ecm.usb0\n' > "$t/run/gadget.saved"; printf 'bridge\n' > "$t/run/mode"
+"$bin" shutdown > "$t/shutdown.log" 2>&1 || fail "shutdown: $(cat "$t/shutdown.log")"
+[ "$(ls "$g/configs/c.1" | tr '\n' ' ')" = "acm.usb0 ecm.usb0 " ] || fail "shutdown: USB set back: $(ls "$g/configs/c.1")"
+[ ! -s "$t/calls" ] || fail "shutdown: no radio-start, no reboot: $(cat "$t/calls")"
+[ "$("$bin" mode)" = normal ] || fail "shutdown: normal mode"
+
 # No radio-start hook, or one that fails: a reboot instead.
 printf 'f ecm.usb0\n' > "$t/run/gadget.saved"; printf 'bridge\n' > "$t/run/mode"; : > "$t/calls"
 rm "$t/libexec/radio-start"

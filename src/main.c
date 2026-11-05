@@ -12,6 +12,9 @@
 //                              rebooting only if that fails; exit 0 at once
 //   fpvos-usb bridge           the bridge itself (what `mode bridge` starts)
 //   fpvos-usb unbridge         the way back from it (what `mode normal` starts)
+//   fpvos-usb shutdown         before the image's USB gadget goes down at
+//                              shutdown: stop the bridge first, or unbinding
+//                              the gadget under its endpoints hangs the reboot
 //
 // Update mode is the updater's own (its clean mode): not handled here.
 #include <errno.h>
@@ -180,6 +183,17 @@ int main(int argc, char **argv)
 		}
 		return mode_set("normal") ? 1 : 0;
 	}
-	fprintf(stderr, "usage: fpvos-usb mode [normal|bridge] | fpvos-usb bridge | fpvos-usb unbridge\n");
+	if (argc == 2 && !strcmp(argv[1], "shutdown")) {
+		char now[32];
+		struct conf c;
+		mode_get(now, sizeof(now));
+		if (strcmp(now, "bridge"))
+			return 0;
+		say("shutdown: leaving bridge mode first\n");
+		if (conf_load(&c) || unbridge_main(&c, NULL))
+			return 1;
+		return mode_set("normal") ? 1 : 0;
+	}
+	fprintf(stderr, "usage: fpvos-usb mode [normal|bridge] | fpvos-usb bridge | fpvos-usb unbridge | fpvos-usb shutdown\n");
 	return 2;
 }

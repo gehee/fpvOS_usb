@@ -418,8 +418,8 @@ int bridge_main(const struct conf *c)
 
 /* The way back from bridge mode, live: the bridge stops, the unit's own USB
  * set comes back, and the board's radio-start hook puts the unit's own
- * firmware back in its chip and starts what uses it. Anything failing: the
- * unit reboots instead. */
+ * firmware back in its chip and starts what uses it (hook NULL: not that, for
+ * a shutdown). Anything failing: the caller reboots instead. */
 int unbridge_main(const struct conf *c, int (*hook)(const char *name))
 {
 	struct gadget_saved saved;
@@ -456,7 +456,7 @@ int unbridge_main(const struct conf *c, int (*hook)(const char *name))
 	say("unbridge: the unit's own USB set is back\n");
 	/* Required: without it the chip would keep the host's firmware. */
 	hook_path(path, sizeof(path), "radio-start");
-	if (access(path, X_OK) || hook("radio-start")) {
+	if (hook && (access(path, X_OK) || hook("radio-start"))) {
 		say("unbridge: radio-start failed\n");
 		return 1;
 	}
