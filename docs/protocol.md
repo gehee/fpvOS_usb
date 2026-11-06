@@ -99,8 +99,8 @@ and `-`. A real AR8030 on USB has no such string.
 |---|---|---|---|---|
 | `p1-air` | BETAFPV P1 Air (AR9311) | SDIO | `p1-air.c`, made by fpvOS from P1_SKY 1.0.44's radio image | yes |
 | `ascent-vrx` | Caddx Ascent VRX (AR9311) | SDIO | `ascent-vrx.c` (fpvOS `vendor/open8030`) | not yet |
-| `ascent-lite` | Caddx Ascent Lite air (Hi3516CV610, board 482) | SDIO | `ascent-lite-plus.c` (one image for both) | not yet |
-| `ascent-lite-plus` | Caddx Ascent Lite+ air (board 472) | SDIO | `ascent-lite-plus.c` | not yet |
+| `ascent-lite` | Caddx Ascent Lite air (Hi3516CV610, board 482) | SDIO | `ascent-lite-plus.c` (one image for both) | yes (as the Lite+) |
+| `ascent-lite-plus` | Caddx Ascent Lite+ air (board 472) | SDIO | `ascent-lite-plus.c` | yes |
 | `ascent-vrx-pro` | Caddx VRX Pro goggle (RK3568) | USB | `ascent-vrx-pro.c` | yes |
 | `steadyview` | Skyzone SteadyView Digital ground (AR9311) | SDIO | `steadyview-vrx.c` | not yet |
 

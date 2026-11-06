@@ -1,0 +1,32 @@
+#!/bin/sh
+# chip-load DIR IMAGE [CONFIG]: reload the Lite's AR8030 with IMAGE (from DIR)
+# through arlink.ko: the image the host uploaded in bridge mode (its config
+# already in it), or on the way back the unit's own with its CONFIG.
+#
+# A running chip never goes back to its boot ROM by itself. arlink.ko is
+# unloaded (it never goes away under a program holding the chip), the chip's
+# reset line (GPIO7_3, the one stock's run script pulses) is pulled low, and
+# the SD host, which arlink.ko left polling for the card, sees it come back
+# as the boot ROM (4152:8030); arlink.ko uploads IMAGE (and CONFIG over the
+# image's own) and gives /dev/arlink0 once the running chip is back.
+set -eu
+dir=${1:?} image=${2:?} config=${3:-}
+rst=59
+sdio=/sys/bus/sdio/devices
+
+! grep -q '^arlink ' /proc/modules || rmmod arlink
+[ -d /sys/class/gpio/gpio$rst ] || echo $rst > /sys/class/gpio/export
+echo out > /sys/class/gpio/gpio$rst/direction
+echo 0 > /sys/class/gpio/gpio$rst/value
+sleep 0.1
+echo 1 > /sys/class/gpio/gpio$rst/value
+i=0
+while [ "$(cat $sdio/*/device 2> /dev/null)" != 0x8030 ] && [ "$i" -lt 50 ]; do sleep 0.1; i=$((i + 1)); done
+[ "$(cat $sdio/*/device 2> /dev/null)" = 0x8030 ] || { echo "chip-load: no boot ROM on SDIO after the reset" >&2; exit 1; }
+
+printf %s "$dir" > /sys/module/firmware_class/parameters/path
+insmod /usrdata/fpv/air/arlink.ko fw_name="$image" cfg_name="$config"
+i=0
+while [ ! -c /dev/arlink0 ] && [ "$i" -lt 100 ]; do sleep 0.1; i=$((i + 1)); done
+[ -c /dev/arlink0 ] || { dmesg | grep -iE 'arlink|mmc0' | tail -8 >&2; exit 1; }
+dmesg | grep -E 'arlink.*(uploaded|running)' | tail -2

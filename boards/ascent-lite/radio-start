@@ -1,0 +1,9 @@
+#!/bin/sh
+# Back from bridge mode: the unit's own firmware and config in its chip again,
+# the ones fpvOS's air/start.sh loaded at boot (it notes them in /tmp/air-radio),
+# then kestrel-air under its runner, in the background as at boot.
+set -eu
+. /tmp/air-radio
+/usrdata/fpv/air/usb/chip-load "$radio_dir" "$radio_fw" "$radio_cfg"
+cd /usrdata/fpv/air
+KA_BOARD_TYPE=$board_type setsid ./run-kestrel-air.sh >> /tmp/air.log 2>&1 < /dev/null &
