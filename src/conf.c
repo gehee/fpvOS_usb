@@ -69,6 +69,7 @@ int conf_load(struct conf *c)
 		else if (!strcmp(k, "KEEP")) set(c->keep, v);
 		else if (!strcmp(k, "CHIP_DEV")) set(c->chip_dev, v);
 		else if (!strcmp(k, "USB_SERIAL")) set(c->serial, v);
+		else if (!strcmp(k, "PRODUCT")) set(c->product, v);
 		else if (!strcmp(k, "BOARD")) {
 			char b[64];
 			set(b, v);
@@ -88,4 +89,13 @@ int conf_load(struct conf *c)
 		return -1;
 	}
 	return 0;
+}
+
+const char *bridge_product(const struct conf *c, const char *fallback)
+{
+	static char name[80];
+	if (!c->product[0])
+		return fallback;
+	snprintf(name, sizeof(name), "%s (bridge)", c->product);
+	return name;
 }

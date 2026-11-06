@@ -162,7 +162,7 @@ static int run_rom(const struct conf *c, const char *image)
 	static uint8_t buf[ROM_BLOCK_MAX];
 	struct rom r = {0};
 
-	if (present(c, 0, 0x4152, 0x8030, "AR8030 boot ROM") || gadget_bind(c))
+	if (present(c, 0, 0x4152, 0x8030, bridge_product(c, "AR8030 boot ROM")) || gadget_bind(c))
 		return -1;
 	say("rom: waiting for the host's upload (4152:8030)\n");
 	for (;;) {
@@ -322,7 +322,7 @@ static int run_chip(const struct conf *c)
 		say("open %s: %s\n", c->chip_dev, strerror(errno));
 		return -1;
 	}
-	if (present(c, 1, 0x1d6b, 0x8030, "AR8030"))
+	if (present(c, 1, 0x1d6b, 0x8030, bridge_product(c, "AR8030")))
 		return -1;
 	ep_in = open(FFS_DIR "/ep1", O_RDWR | O_CLOEXEC);
 	ep_out = open(FFS_DIR "/ep2", O_RDWR | O_CLOEXEC);
@@ -363,7 +363,7 @@ static void serial_present(const struct conf *c)
 {
 	ffs_stop(c);
 	gadget_unbind(c);
-	gadget_ids(c, 0x1d6b, 0x0104, "fpvOS serial");
+	gadget_ids(c, 0x1d6b, 0x0104, bridge_product(c, "fpvOS serial"));
 	gadget_bind(c);
 }
 
