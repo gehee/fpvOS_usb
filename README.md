@@ -28,7 +28,7 @@ repository as the `fpvos-usb` package.
 |---|---|
 | BETAFPV P1 Air (AR9311, fpvOS's own 6.18 kernel) | built; not yet run on a unit |
 | Ascent VRX (AR9311) | to do: same as the P1 Air, its own hooks |
-| Ascent Lite/Lite+ air (Hi3516CV610, stock kernel) | `ascent-lite`, `ascent-lite-plus`: stock's ACM gadget, FunctionFS as a module fpvOS builds; normal, bridge (host upload, frames both ways) and back without a reboot verified on a Lite+; the chip reset by its GPIO7_3 |
+| Ascent Lite/Lite+ air (Hi3516CV610, stock kernel) | `ascent-lite`, `ascent-lite-plus`: stock's ACM gadget, FunctionFS as a module fpvOS builds; normal, bridge (host upload, frames both ways) and back without a reboot verified on a Lite+; the chip reset by its GPIO7_3; bridge mode kept across reboots (SAVED_MODE in the app volume) |
 | VRX Pro goggle (RK3568, chip on USB) | built; normal, bridge and back verified on a unit, the chip loaded by its power GPIOs; no host upload tried yet |
 
 The stock P1 Air kernel (4.9.38) has no FunctionFS: bridge mode needs the
