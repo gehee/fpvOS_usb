@@ -18,7 +18,11 @@ from this repository for the mode changes.
 | update | USB network; the unit runs from RAM, nothing else running, so it can be flashed | `update` (or `clean`): the unit reboots into it where it has to |
 | bridge | its AR8030, as an AR8030 on USB (boot ROM, then the running chip) | `bridge`, from normal; no reboot |
 
-Bridge mode is not kept across a reboot: a unit always boots in normal mode.
+Bridge mode is kept across reboots on a board whose settings name a
+`SAVED_MODE` file (on persistent storage): `bridge` saves it, `normal` clears
+it, and the image's start script boots into it (`fpvos-usb saved`). Without
+one, a unit always boots in normal mode. Installing firmware through update
+mode starts the new image in normal mode.
 Update mode is the updater's clean mode, under its own name in this protocol.
 
 USB identities (vendor:product), with the same serial number in every mode:

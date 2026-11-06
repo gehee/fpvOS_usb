@@ -70,6 +70,7 @@ int conf_load(struct conf *c)
 		else if (!strcmp(k, "CHIP_DEV")) set(c->chip_dev, v);
 		else if (!strcmp(k, "USB_SERIAL")) set(c->serial, v);
 		else if (!strcmp(k, "PRODUCT")) set(c->product, v);
+		else if (!strcmp(k, "SAVED_MODE")) set(c->saved, v);
 		else if (!strcmp(k, "BOARD")) {
 			char b[64];
 			set(b, v);

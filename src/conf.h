@@ -13,6 +13,9 @@ struct conf {
 	char serial[64];        /* USB_SERIAL: the same in every mode */
 	char board[32];         /* BOARD: the board id the bridge shows the host (docs/protocol.md) */
 	char product[64];       /* PRODUCT: the unit's name; in bridge mode "<PRODUCT> (bridge)" */
+	char saved[64];         /* SAVED_MODE: a file on persistent storage that keeps
+	                         * bridge mode across reboots, until `mode normal`;
+	                         * none: every boot is normal */
 };
 
 /* A board id: 1-31 of a-z, 0-9 and '-', starting with a letter or digit. */

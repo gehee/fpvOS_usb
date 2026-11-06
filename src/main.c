@@ -7,9 +7,14 @@
 //   fpvos-usb mode             print the mode: normal or bridge
 //   fpvos-usb mode bridge      stop the radio's users, then (1 s later, so the
 //                              reply gets out) turn the USB network into the
-//                              AR8030 bridge; exit 0 once started
+//                              AR8030 bridge; exit 0 once started. With
+//                              SAVED_MODE it is also the mode the unit boots in
 //   fpvos-usb mode normal      from bridge: (1 s later) undo the bridge live,
-//                              rebooting only if that fails; exit 0 at once
+//                              rebooting only if that fails; exit 0 at once.
+//                              Clears the saved mode first
+//   fpvos-usb saved            print the mode to boot in: normal or bridge
+//                              (the image's start script asks, and runs
+//                              `mode bridge` instead of its radio for bridge)
 //   fpvos-usb bridge           the bridge itself (what `mode bridge` starts)
 //   fpvos-usb unbridge         the way back from it (what `mode normal` starts)
 //   fpvos-usb shutdown         before the image's USB gadget goes down at
@@ -76,6 +81,43 @@ static int mode_set(const char *mode)
 	return 0;
 }
 
+/* The saved mode (SAVED_MODE): bridge while the file says so, else normal. */
+static int saved_bridge(const struct conf *c)
+{
+	char mode[32] = "";
+	FILE *f = c->saved[0] ? fopen(c->saved, "r") : NULL;
+	if (!f)
+		return 0;
+	int bridge = fgets(mode, sizeof(mode), f) && !strcmp(mode, "bridge\n");
+	fclose(f);
+	return bridge;
+}
+
+/* Written whole (a new file renamed over it) and synced, as the unit may lose
+ * power right after; normal removes it. */
+static int saved_set(const struct conf *c, int bridge)
+{
+	if (!c->saved[0])
+		return 0;
+	if (!bridge) {
+		if (unlink(c->saved) && errno != ENOENT) {
+			perror(c->saved);
+			return -1;
+		}
+		sync();
+		return 0;
+	}
+	char tmp[80];
+	snprintf(tmp, sizeof(tmp), "%s.new", c->saved);
+	FILE *f = fopen(tmp, "w");
+	if (!f || fprintf(f, "bridge\n") < 0 || fflush(f) || fsync(fileno(f)) || fclose(f) || rename(tmp, c->saved)) {
+		perror(c->saved);
+		return -1;
+	}
+	sync();
+	return 0;
+}
+
 static int hook(const char *name)
 {
 	char path[256];
@@ -136,8 +178,14 @@ static int mode_main(int argc, char **argv)
 		return 0;
 	}
 	const char *want = argv[2];
-	if (!strcmp(want, "normal"))
+	if (!strcmp(want, "normal")) {
+		/* Not saved any more even if the way back fails: the reboot it
+		 * falls back to then comes up normal. */
+		struct conf c;
+		if (!conf_load(&c) && saved_set(&c, 0))
+			return 1;
 		return strcmp(now, "bridge") ? 0 : (start("unbridge") ? 10 : 0);
+	}
 	if (strcmp(want, "bridge")) {
 		fprintf(stderr, "fpvos-usb: no mode %s here (normal, bridge)\n", want);
 		return 2;
@@ -154,7 +202,7 @@ static int mode_main(int argc, char **argv)
 	}
 	if (mode_set("bridge") || start("bridge"))
 		return 1;
-	return 0;
+	return saved_set(&c, 1) ? 1 : 0;
 }
 
 int main(int argc, char **argv)
@@ -165,6 +213,11 @@ int main(int argc, char **argv)
 	setvbuf(stdout, NULL, _IOLBF, 0);
 	if (argc >= 2 && !strcmp(argv[1], "mode"))
 		return mode_main(argc, argv);
+	if (argc == 2 && !strcmp(argv[1], "saved")) {
+		struct conf c;
+		printf("%s\n", !conf_load(&c) && saved_bridge(&c) ? "bridge" : "normal");
+		return 0;
+	}
 	if (argc == 2 && !strcmp(argv[1], "bridge")) {
 		struct conf c;
 		if (conf_load(&c))
@@ -194,6 +247,6 @@ int main(int argc, char **argv)
 			return 1;
 		return mode_set("normal") ? 1 : 0;
 	}
-	fprintf(stderr, "usage: fpvos-usb mode [normal|bridge] | fpvos-usb bridge | fpvos-usb unbridge | fpvos-usb shutdown\n");
+	fprintf(stderr, "usage: fpvos-usb mode [normal|bridge] | fpvos-usb saved | fpvos-usb bridge | fpvos-usb unbridge | fpvos-usb shutdown\n");
 	return 2;
 }

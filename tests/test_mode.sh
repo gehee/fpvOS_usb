@@ -38,6 +38,20 @@ bridge" ] || fail "radio stopped, then the bridge started: $(cat "$t/calls")"
 wait_for unbridge
 [ "$(tail -n1 "$t/calls")" = unbridge ] || fail "the way back started: $(cat "$t/calls")"
 
+# SAVED_MODE: bridge is kept for the next boot until normal clears it.
+[ "$("$bin" saved)" = normal ] || fail "nothing saved without SAVED_MODE"
+rm -rf "$t/run" "$t/calls"
+echo "SAVED_MODE=$t/saved" >> "$t/conf"
+[ "$("$bin" saved)" = normal ] || fail "nothing saved yet"
+"$bin" mode bridge || fail "bridge starts (saved)"
+[ "$(cat "$t/saved")" = bridge ] && [ "$("$bin" saved)" = bridge ] || fail "bridge saved"
+wait_for bridge
+rm -rf "$t/run"                 # a reboot: the RAM state is gone, the saved mode is not
+[ "$("$bin" mode)" = normal ] && [ "$("$bin" saved)" = bridge ] || fail "saved mode survives a reboot"
+"$bin" mode normal || fail "normal clears the saved mode"
+[ ! -e "$t/saved" ] && [ "$("$bin" saved)" = normal ] || fail "saved mode cleared"
+sed -i '/^SAVED_MODE=/d' "$t/conf"
+
 # A radio-stop that fails keeps the unit in normal mode.
 rm -rf "$t/run" "$t/calls"
 printf '#!/bin/sh\nexit 1\n' > "$t/libexec/radio-stop"
