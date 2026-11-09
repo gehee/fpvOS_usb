@@ -46,5 +46,4 @@ scanner, and the mode changes and gadget edits against a fake configfs tree.
 
 ## License
 
-GPL-2.0-or-later. The bridge started as `arlink-usbchip`, written for the
-Skyzone SteadyView ground unit.
+GPL-2.0-or-later.
