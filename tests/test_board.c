@@ -51,8 +51,8 @@ int main(void)
 	CHECK(load("GADGET=fpvos\nUDC=u\nKEEP=acm.usb0\nBOARD=\"p1-air\"\n", &c) == 0);
 	CHECK(!strcmp(c.board, "p1-air") && !strcmp(c.chip_dev, "/dev/arlink0"));
 	CHECK(!strcmp(bridge_product(&c, "AR8030"), "AR8030"));
-	CHECK(load("GADGET=acm\nUDC=u\nKEEP=acm.0\nBOARD=ascent-lite-plus\nPRODUCT=\"Caddx Ascent Lite+\"\n", &c) == 0);
-	CHECK(!strcmp(bridge_product(&c, "AR8030"), "Caddx Ascent Lite+ (bridge)"));
+	CHECK(load("GADGET=acm\nUDC=u\nKEEP=acm.0\nBOARD=ascent-lite-plus\nPRODUCT=\"Ascent Lite+ Air Unit - fpvOS\"\n", &c) == 0);
+	CHECK(!strcmp(bridge_product(&c, "AR8030"), "Ascent Lite+ Air Unit - fpvOS [bridge]"));
 	CHECK(load("GADGET=fpvos\nUDC=u\nKEEP=acm.usb0\n", &c) == -1);
 	CHECK(load("GADGET=fpvos\nUDC=u\nKEEP=acm.usb0\nBOARD=P1 Air\n", &c) == -1);
 	DONE();

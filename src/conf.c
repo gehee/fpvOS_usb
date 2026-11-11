@@ -97,6 +97,6 @@ const char *bridge_product(const struct conf *c, const char *fallback)
 	static char name[80];
 	if (!c->product[0])
 		return fallback;
-	snprintf(name, sizeof(name), "%s (bridge)", c->product);
+	snprintf(name, sizeof(name), "%s [bridge]", c->product);
 	return name;
 }

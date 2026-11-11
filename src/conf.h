@@ -12,7 +12,7 @@ struct conf {
 	char chip_dev[64];      /* CHIP_DEV: this unit's AR8030 (arlink.ko) */
 	char serial[64];        /* USB_SERIAL: the same in every mode */
 	char board[32];         /* BOARD: the board id the bridge shows the host (docs/protocol.md) */
-	char product[64];       /* PRODUCT: the unit's name; in bridge mode "<PRODUCT> (bridge)" */
+	char product[64];       /* PRODUCT: the unit's name; in bridge mode "<PRODUCT> [bridge]" */
 	char saved[64];         /* SAVED_MODE: a file on persistent storage that keeps
 	                         * bridge mode across reboots, until `mode normal`;
 	                         * none: every boot is normal */
@@ -22,7 +22,7 @@ struct conf {
 int board_id_valid(const char *id);
 
 int conf_load(struct conf *c);
-/* The USB product string for a bridge stage: "<PRODUCT> (bridge)", or
+/* The USB product string for a bridge stage: "<PRODUCT> [bridge]", or
  * fallback when the board names no product. */
 const char *bridge_product(const struct conf *c, const char *fallback);
 const char *run_dir(void);
